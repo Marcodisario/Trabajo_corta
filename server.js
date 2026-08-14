@@ -64,7 +64,8 @@ function crearApp(opciones = {}) {
       return res.status(404).send('No existe ese link');
     }
     link.clicks = link.clicks + 1;
-    res.send(link.url);
+    guardarLinks(links);
+    res.redirect(302, link.url);
   });
 
   app.use((error, req, res, next) => {
