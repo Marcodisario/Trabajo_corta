@@ -57,7 +57,11 @@ El comportamiento exacto, los códigos HTTP y los casos borde se definen en `SPE
 
 ## Tests
 
-La infraestructura automatizada se incorporará en el siguiente paso. Cada corrección o funcionalidad deberá incluir primero los tests que expresen el comportamiento acordado en `SPEC.md`.
+```bash
+npm test
+```
+
+Las pruebas usan archivos temporales y no modifican `links.json`. Cada corrección o funcionalidad debe incluir primero los tests que expresen el comportamiento acordado en `SPEC.md`.
 
 ## Configuración y secretos
 

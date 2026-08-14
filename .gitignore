@@ -6,6 +6,7 @@ coverage/
 dist/
 *.log
 npm-debug.log*
+.npm-cache/
 .DS_Store
 Thumbs.db
 
