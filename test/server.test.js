@@ -112,11 +112,58 @@ test('crea un enlace HTTPS válido y recorta espacios exteriores', async (t) => 
   assert.equal(leerLinks()[0].url, 'https://example.com/recurso?q=1');
 });
 
+test('redirige al destino y persiste exactamente un click', async (t) => {
+  const inicial = [{
+    codigo: 'abc',
+    url: 'https://example.com/destino',
+    clicks: 0,
+    creado: '2026-08-14T12:00:00.000Z'
+  }];
+  const { app, leerLinks } = crearEntorno(t, inicial);
+  const respuesta = await solicitar(t, app, '/abc', { redirect: 'manual' });
+
+  assert.equal(respuesta.status, 302);
+  assert.equal(respuesta.headers.get('location'), 'https://example.com/destino');
+  assert.equal(leerLinks()[0].clicks, 1);
+});
+
+test('cuenta cada redirección una sola vez', async (t) => {
+  const inicial = [{
+    codigo: 'abc',
+    url: 'https://example.com/destino',
+    clicks: 0,
+    creado: '2026-08-14T12:00:00.000Z'
+  }];
+  const { app, leerLinks } = crearEntorno(t, inicial);
+
+  for (let intento = 0; intento < 3; intento += 1) {
+    const respuesta = await solicitar(t, app, '/abc', { redirect: 'manual' });
+    assert.equal(respuesta.status, 302);
+  }
+
+  assert.equal(leerLinks()[0].clicks, 3);
+});
+
+test('cargar una página estática no incrementa clicks', async (t) => {
+  const inicial = [{
+    codigo: 'abc',
+    url: 'https://example.com/destino',
+    clicks: 7,
+    creado: '2026-08-14T12:00:00.000Z'
+  }];
+  const { app, leerLinks } = crearEntorno(t, inicial);
+  const respuesta = await solicitar(t, app, '/stats.html');
+
+  assert.equal(respuesta.status, 200);
+  assert.equal(leerLinks()[0].clicks, 7);
+});
+
 test('responde 404 para un código inexistente', async (t) => {
-  const { app } = crearEntorno(t);
+  const { app, leerLinks } = crearEntorno(t);
   const respuesta = await solicitar(t, app, '/noexiste');
 
   assert.equal(respuesta.status, 404);
   assert.equal(await respuesta.text(), 'No existe ese link');
+  assert.deepEqual(leerLinks(), []);
 });
 
