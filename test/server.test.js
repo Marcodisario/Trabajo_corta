@@ -28,6 +28,14 @@ async function solicitar(t, app, ruta, opciones) {
   return fetch(`http://127.0.0.1:${port}${ruta}`, opciones);
 }
 
+function crearLink(t, app, body) {
+  return solicitar(t, app, '/api/links', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+}
+
 test('sirve la página principal', async (t) => {
   const { app } = crearEntorno(t);
   const respuesta = await solicitar(t, app, '/');
@@ -39,33 +47,69 @@ test('sirve la página principal', async (t) => {
 
 test('rechaza una creación cuando falta la URL', async (t) => {
   const { app, leerLinks } = crearEntorno(t);
-  const respuesta = await solicitar(t, app, '/api/links', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({})
-  });
+  const respuesta = await crearLink(t, app, {});
 
   assert.equal(respuesta.status, 400);
-  assert.deepEqual(await respuesta.json(), { error: 'Falta la url' });
+  assert.deepEqual(await respuesta.json(), { error: 'URL inválida' });
   assert.deepEqual(leerLinks(), []);
 });
 
-test('caracteriza la creación heredada de un enlace', async (t) => {
+for (const [nombre, url] of [
+  ['string vacío', ''],
+  ['espacios', '   '],
+  ['valor no string', 123],
+  ['URL relativa', '/recurso'],
+  ['texto sin formato URL', 'no-es-una-url'],
+  ['protocolo FTP', 'ftp://example.com/archivo'],
+  ['protocolo javascript', 'javascript:alert(1)']
+]) {
+  test(`rechaza ${nombre}`, async (t) => {
+    const { app, leerLinks } = crearEntorno(t);
+    const respuesta = await crearLink(t, app, { url });
+
+    assert.equal(respuesta.status, 400);
+    assert.deepEqual(await respuesta.json(), { error: 'URL inválida' });
+    assert.deepEqual(leerLinks(), []);
+  });
+}
+
+test('rechaza JSON malformado con un error controlado', async (t) => {
   const { app, leerLinks } = crearEntorno(t);
   const respuesta = await solicitar(t, app, '/api/links', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ url: 'https://example.com/recurso' })
+    body: '{"url":'
   });
 
-  assert.equal(respuesta.status, 200);
+  assert.equal(respuesta.status, 400);
+  assert.deepEqual(await respuesta.json(), { error: 'JSON inválido' });
+  assert.deepEqual(leerLinks(), []);
+});
+
+test('crea un enlace HTTP válido', async (t) => {
+  const { app, leerLinks } = crearEntorno(t);
+  const respuesta = await crearLink(t, app, {
+    url: 'http://example.com/recurso'
+  });
+
+  assert.equal(respuesta.status, 201);
   assert.deepEqual(await respuesta.json(), { codigo: 'abc', corta: '/abc' });
 
   const [link] = leerLinks();
   assert.equal(link.codigo, 'abc');
-  assert.equal(link.url, 'https://example.com/recurso');
+  assert.equal(link.url, 'http://example.com/recurso');
   assert.equal(link.clicks, 0);
   assert.ok(!Number.isNaN(Date.parse(link.creado)));
+});
+
+test('crea un enlace HTTPS válido y recorta espacios exteriores', async (t) => {
+  const { app, leerLinks } = crearEntorno(t);
+  const respuesta = await crearLink(t, app, {
+    url: '  https://example.com/recurso?q=1  '
+  });
+
+  assert.equal(respuesta.status, 201);
+  assert.equal(leerLinks()[0].url, 'https://example.com/recurso?q=1');
 });
 
 test('responde 404 para un código inexistente', async (t) => {
@@ -75,3 +119,4 @@ test('responde 404 para un código inexistente', async (t) => {
   assert.equal(respuesta.status, 404);
   assert.equal(await respuesta.text(), 'No existe ese link');
 });
+
