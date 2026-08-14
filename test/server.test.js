@@ -15,6 +15,7 @@ function crearEntorno(t, links = []) {
 
   return {
     app: crearApp({ dbFile, generarCodigo: () => 'abc' }),
+    dbFile,
     leerLinks: () => JSON.parse(fs.readFileSync(dbFile, 'utf8'))
   };
 }
@@ -142,6 +143,45 @@ test('cuenta cada redirección una sola vez', async (t) => {
   }
 
   assert.equal(leerLinks()[0].clicks, 3);
+});
+
+test('conserva los clicks al recrear la aplicación', async (t) => {
+  const inicial = [{
+    codigo: 'abc',
+    url: 'https://example.com/destino',
+    clicks: 2,
+    creado: '2026-08-14T12:00:00.000Z'
+  }];
+  const entorno = crearEntorno(t, inicial);
+
+  await solicitar(t, entorno.app, '/abc', { redirect: 'manual' });
+
+  const reiniciada = crearApp({
+    dbFile: entorno.dbFile,
+    generarCodigo: () => 'xyz'
+  });
+  await solicitar(t, reiniciada, '/abc', { redirect: 'manual' });
+
+  assert.equal(entorno.leerLinks()[0].clicks, 4);
+});
+
+test('no pierde clicks ante accesos concurrentes', async (t) => {
+  const inicial = [{
+    codigo: 'abc',
+    url: 'https://example.com/destino',
+    clicks: 0,
+    creado: '2026-08-14T12:00:00.000Z'
+  }];
+  const { app, leerLinks } = crearEntorno(t, inicial);
+
+  const respuestas = await Promise.all(
+    Array.from({ length: 10 }, () =>
+      solicitar(t, app, '/abc', { redirect: 'manual' })
+    )
+  );
+
+  assert.ok(respuestas.every((respuesta) => respuesta.status === 302));
+  assert.equal(leerLinks()[0].clicks, 10);
 });
 
 test('cargar una página estática no incrementa clicks', async (t) => {
