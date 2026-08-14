@@ -24,6 +24,7 @@ function normalizarUrl(valor) {
 function crearApp(opciones = {}) {
   const dbFile = opciones.dbFile || path.join(__dirname, 'links.json');
   const generar = opciones.generarCodigo || generarCodigo;
+  const maxIntentosCodigo = opciones.maxIntentosCodigo ?? 10;
   const app = express();
 
   app.use(express.json());
@@ -44,7 +45,21 @@ function crearApp(opciones = {}) {
       return res.status(400).json({ error: 'URL inválida' });
     }
     const links = leerLinks();
-    const codigo = generar();
+    let codigo = null;
+
+    for (let intento = 0; intento < maxIntentosCodigo; intento += 1) {
+      const candidato = generar();
+      const existe = links.some((link) => link.codigo === candidato);
+      if (!existe) {
+        codigo = candidato;
+        break;
+      }
+    }
+
+    if (!codigo) {
+      return res.status(503).json({ error: 'No hay códigos disponibles' });
+    }
+
     const nuevo = {
       codigo: codigo,
       url: url,
