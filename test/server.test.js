@@ -6,7 +6,7 @@ const test = require('node:test');
 
 const { crearApp } = require('../server');
 
-function crearEntorno(t, links = []) {
+function crearEntorno(t, links = [], opciones = {}) {
   const directorio = fs.mkdtempSync(path.join(os.tmpdir(), 'corta-test-'));
   const dbFile = path.join(directorio, 'links.json');
   fs.writeFileSync(dbFile, JSON.stringify(links, null, 2));
@@ -14,10 +14,19 @@ function crearEntorno(t, links = []) {
   t.after(() => fs.rmSync(directorio, { recursive: true, force: true }));
 
   return {
-    app: crearApp({ dbFile, generarCodigo: () => 'abc' }),
+    app: crearApp({
+      dbFile,
+      generarCodigo: opciones.generarCodigo || (() => 'abc'),
+      maxIntentosCodigo: opciones.maxIntentosCodigo
+    }),
     dbFile,
     leerLinks: () => JSON.parse(fs.readFileSync(dbFile, 'utf8'))
   };
+}
+
+function generarEnSecuencia(codigos) {
+  let indice = 0;
+  return () => codigos[Math.min(indice++, codigos.length - 1)];
 }
 
 async function solicitar(t, app, ruta, opciones) {
@@ -111,6 +120,69 @@ test('crea un enlace HTTPS válido y recorta espacios exteriores', async (t) => 
 
   assert.equal(respuesta.status, 201);
   assert.equal(leerLinks()[0].url, 'https://example.com/recurso?q=1');
+});
+
+test('regenera el código cuando encuentra una colisión', async (t) => {
+  const existente = [{
+    codigo: 'abc',
+    url: 'https://example.com/existente',
+    clicks: 4,
+    creado: '2026-08-14T12:00:00.000Z'
+  }];
+  const { app, leerLinks } = crearEntorno(t, existente, {
+    generarCodigo: generarEnSecuencia(['abc', 'xyz'])
+  });
+  const respuesta = await crearLink(t, app, {
+    url: 'https://example.com/nuevo'
+  });
+
+  assert.equal(respuesta.status, 201);
+  assert.deepEqual(await respuesta.json(), { codigo: 'xyz', corta: '/xyz' });
+
+  const links = leerLinks();
+  assert.equal(links.length, 2);
+  assert.equal(links[0].codigo, 'abc');
+  assert.equal(links[0].clicks, 4);
+  assert.equal(links[1].codigo, 'xyz');
+});
+
+test('tolera varias colisiones consecutivas', async (t) => {
+  const existentes = [
+    { codigo: 'abc', url: 'https://example.com/a', clicks: 0, creado: '2026-08-14T12:00:00.000Z' },
+    { codigo: 'def', url: 'https://example.com/b', clicks: 0, creado: '2026-08-14T12:00:00.000Z' }
+  ];
+  const { app, leerLinks } = crearEntorno(t, existentes, {
+    generarCodigo: generarEnSecuencia(['abc', 'def', 'ghi'])
+  });
+  const respuesta = await crearLink(t, app, {
+    url: 'https://example.com/nuevo'
+  });
+
+  assert.equal(respuesta.status, 201);
+  assert.equal((await respuesta.json()).codigo, 'ghi');
+  assert.deepEqual(leerLinks().map((link) => link.codigo), ['abc', 'def', 'ghi']);
+});
+
+test('falla de forma controlada si no consigue un código libre', async (t) => {
+  const existentes = [{
+    codigo: 'abc',
+    url: 'https://example.com/existente',
+    clicks: 0,
+    creado: '2026-08-14T12:00:00.000Z'
+  }];
+  const { app, leerLinks } = crearEntorno(t, existentes, {
+    generarCodigo: () => 'abc',
+    maxIntentosCodigo: 3
+  });
+  const respuesta = await crearLink(t, app, {
+    url: 'https://example.com/nuevo'
+  });
+
+  assert.equal(respuesta.status, 503);
+  assert.deepEqual(await respuesta.json(), {
+    error: 'No hay códigos disponibles'
+  });
+  assert.deepEqual(leerLinks(), existentes);
 });
 
 test('redirige al destino y persiste exactamente un click', async (t) => {
