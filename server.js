@@ -3,6 +3,24 @@ const fs = require('fs');
 const path = require('path');
 const { generarCodigo } = require('./utils');
 
+function normalizarUrl(valor) {
+  if (typeof valor !== 'string') {
+    return null;
+  }
+
+  const url = valor.trim();
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 function crearApp(opciones = {}) {
   const dbFile = opciones.dbFile || path.join(__dirname, 'links.json');
   const generar = opciones.generarCodigo || generarCodigo;
@@ -21,9 +39,9 @@ function crearApp(opciones = {}) {
 
   // crear un link corto
   app.post('/api/links', (req, res) => {
-    const { url } = req.body;
+    const url = normalizarUrl(req.body && req.body.url);
     if (!url) {
-      return res.status(400).json({ error: 'Falta la url' });
+      return res.status(400).json({ error: 'URL inválida' });
     }
     const links = leerLinks();
     const codigo = generar();
@@ -35,7 +53,7 @@ function crearApp(opciones = {}) {
     };
     links.push(nuevo);
     guardarLinks(links);
-    res.json({ codigo: codigo, corta: '/' + codigo });
+    res.status(201).json({ codigo: codigo, corta: '/' + codigo });
   });
 
   // redirigir al destino
@@ -49,6 +67,13 @@ function crearApp(opciones = {}) {
     res.send(link.url);
   });
 
+  app.use((error, req, res, next) => {
+    if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+      return res.status(400).json({ error: 'JSON inválido' });
+    }
+    return next(error);
+  });
+
   return app;
 }
 
@@ -60,3 +85,4 @@ if (require.main === module) {
 }
 
 module.exports = { crearApp };
+
