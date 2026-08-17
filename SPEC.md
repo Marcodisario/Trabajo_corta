@@ -67,6 +67,11 @@ Para un código existente responde `200 OK`:
 
 Para un código inexistente responde `404 Not Found` con un error JSON. Consultar estadísticas nunca incrementa `clicks`.
 
+### 3.4 Estado del servicio — `GET /health`
+
+Responde `200 OK` con `{ "status": "ok" }`. Railway usa esta ruta como
+healthcheck; no consulta ni modifica enlaces y nunca incrementa clicks.
+
 ## 4. Definición de estadísticas verdaderas
 
 Las estadísticas dicen la verdad cuando se cumplen simultáneamente estas reglas:
@@ -144,3 +149,20 @@ Antes de cada implementación se agregan tests que fallen para el comportamiento
 
 Un milestone se considera terminado cuando sus tests fueron agregados antes que la implementación, toda la batería está verde y este documento coincide con el comportamiento real.
 
+## 10. Comportamiento final verificado en producción
+
+La versión desplegada en Railway cumple este contrato con PostgreSQL administrado
+y almacenamiento persistente. El 17 de agosto de 2026 se ejecutó la prueba final:
+
+1. `POST /api/links` creó `/6ft` para una URL HTTPS.
+2. `GET /6ft` respondió `302` y registró exactamente un click.
+3. El endpoint de estadísticas devolvió el destino, la fecha y `clicks: 1`.
+4. Se forzó un redeploy; el deployment
+   `ca7f1c28-ca13-4814-846e-ff444729efea` terminó en `SUCCESS` y superó
+   el healthcheck al primer intento.
+5. Tras reemplazar el contenedor, las estadísticas de `/6ft` conservaron el
+   mismo destino, fecha y click.
+6. Los logs confirmaron el arranque mediante `npm start` y la escucha en el
+   puerto `8080` asignado por Railway, sin errores de aplicación.
+
+La batería final contiene 33 tests y pasa completamente.

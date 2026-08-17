@@ -1,19 +1,19 @@
 # Corta
 
-Corta es un acortador interno de URLs construido con Node.js y Express. El proyecto se recibió sin documentación y se está llevando a un estado apto para producción mediante especificación y TDD.
+Corta es un acortador interno de URLs construido con Node.js y Express. El proyecto se recibió sin documentación y fue llevado a producción mediante especificación y TDD.
 
 ## Estado actual
 
-El repositorio conserva el comportamiento heredado para que sus errores puedan corregirse de forma trazable. El contrato funcional y los defectos observados están documentados en [`SPEC.md`](SPEC.md).
+El repositorio conserva la historia del comportamiento heredado y todas sus correcciones de forma trazable. El contrato funcional y los defectos observados están documentados en [`SPEC.md`](SPEC.md).
 
 En este punto:
 
-- La aplicación puede iniciarse en local.
-- Los datos se guardan temporalmente en `links.json`.
+- La aplicación funciona en local y en Railway.
+- En local puede usar `links.json`; en producción usa PostgreSQL persistente.
 - La creación valida URLs HTTP/HTTPS y evita códigos duplicados.
 - Los links cortos redirigen y sus clicks se guardan correctamente.
 - El endpoint y la interfaz muestran estadísticas reales sin sumar clicks al consultarlas.
-- La persistencia se migrará a PostgreSQL antes del deploy en Railway.
+- Los links y clicks sobreviven a reinicios y redeploys.
 
 ## Requisitos
 
@@ -56,10 +56,14 @@ La aplicación heredada queda disponible en <http://localhost:3000>.
 ```text
 .
 ├── public/          # Interfaz web y estilos
+├── repositories/    # Persistencia JSON y PostgreSQL
+├── test/            # Tests HTTP y de persistencia
 ├── links.json       # Persistencia heredada para desarrollo local
 ├── server.js        # Servidor HTTP y endpoints actuales
 ├── utils.js         # Generación de códigos cortos
 ├── SPEC.md          # Contrato funcional y casos borde
+├── MILESTONES.md    # Resumen y evidencia de la entrega
+├── railway.json     # Configuración de Railway
 ├── package.json     # Scripts y dependencias
 └── README.md        # Guía del proyecto
 ```
@@ -80,13 +84,16 @@ El comportamiento exacto, los códigos HTTP y los casos borde se definen en `SPE
 npm test
 ```
 
-Las pruebas usan archivos temporales y no modifican `links.json`. Cada corrección o funcionalidad debe incluir primero los tests que expresen el comportamiento acordado en `SPEC.md`.
+Las 33 pruebas usan archivos temporales y no modifican `links.json`. Cada corrección o funcionalidad incluyó primero los tests que expresan el comportamiento acordado en `SPEC.md`.
 
 ## Configuración y secretos
 
 Los secretos se configuran mediante variables de entorno y nunca se guardan en el repositorio. Los archivos `.env`, notas heredadas sensibles, dependencias instaladas, logs y cobertura están excluidos mediante `.gitignore`.
 
-## Producción
+## Verificación final de producción
 
-El destino de producción es Railway con PostgreSQL. El servicio deberá usar el puerto provisto por el entorno y los enlaces y clicks deberán sobrevivir a reinicios y redeploys.
-
+El 17 de agosto de 2026 se creó el enlace `/6ft`, se confirmó su redirección
+HTTP 302 y el incremento a un click, y se consultaron sus estadísticas. Después
+se forzó el deployment Railway `ca7f1c28-ca13-4814-846e-ff444729efea`: terminó
+en `SUCCESS`, superó `/health` y el mismo enlace conservó destino, fecha y click.
+Los logs muestran el servidor escuchando en el puerto asignado `8080`.
