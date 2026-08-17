@@ -1,7 +1,8 @@
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
 const { generarCodigo } = require('./utils');
+const { CodigoDuplicadoError } = require('./repositories/errors');
+const { JsonLinkRepository } = require('./repositories/json-link-repository');
 
 function normalizarUrl(valor) {
   if (typeof valor !== 'string') {
@@ -23,6 +24,7 @@ function normalizarUrl(valor) {
 
 function crearApp(opciones = {}) {
   const dbFile = opciones.dbFile || path.join(__dirname, 'links.json');
+  const repositorio = opciones.repositorio || new JsonLinkRepository(dbFile);
   const generar = opciones.generarCodigo || generarCodigo;
   const maxIntentosCodigo = opciones.maxIntentosCodigo ?? 10;
   const app = express();
@@ -30,72 +32,60 @@ function crearApp(opciones = {}) {
   app.use(express.json());
   app.use(express.static(path.join(__dirname, 'public')));
 
-  function leerLinks() {
-    return JSON.parse(fs.readFileSync(dbFile, 'utf8'));
-  }
-
-  function guardarLinks(links) {
-    fs.writeFileSync(dbFile, JSON.stringify(links, null, 2));
-  }
-
   // crear un link corto
-  app.post('/api/links', (req, res) => {
+  app.post('/api/links', async (req, res, next) => {
     const url = normalizarUrl(req.body && req.body.url);
     if (!url) {
       return res.status(400).json({ error: 'URL inválida' });
     }
-    const links = leerLinks();
-    let codigo = null;
-
-    for (let intento = 0; intento < maxIntentosCodigo; intento += 1) {
-      const candidato = generar();
-      const existe = links.some((link) => link.codigo === candidato);
-      if (!existe) {
-        codigo = candidato;
-        break;
+    try {
+      for (let intento = 0; intento < maxIntentosCodigo; intento += 1) {
+        const codigo = generar();
+        const nuevo = {
+          codigo,
+          url,
+          clicks: 0,
+          creado: new Date().toISOString()
+        };
+        try {
+          await repositorio.crear(nuevo);
+          return res.status(201).json({ codigo, corta: '/' + codigo });
+        } catch (error) {
+          if (!(error instanceof CodigoDuplicadoError)) {
+            throw error;
+          }
+        }
       }
-    }
-
-    if (!codigo) {
       return res.status(503).json({ error: 'No hay códigos disponibles' });
+    } catch (error) {
+      return next(error);
     }
-
-    const nuevo = {
-      codigo: codigo,
-      url: url,
-      clicks: 0,
-      creado: new Date().toISOString()
-    };
-    links.push(nuevo);
-    guardarLinks(links);
-    res.status(201).json({ codigo: codigo, corta: '/' + codigo });
   });
 
   // consultar estadísticas sin contar un click
-  app.get('/api/links/:codigo/stats', (req, res) => {
-    const links = leerLinks();
-    const link = links.find(function (l) { return l.codigo === req.params.codigo; });
-    if (!link) {
-      return res.status(404).json({ error: 'No existe ese link' });
+  app.get('/api/links/:codigo/stats', async (req, res, next) => {
+    try {
+      const link = await repositorio.buscarPorCodigo(req.params.codigo);
+      if (!link) {
+        return res.status(404).json({ error: 'No existe ese link' });
+      }
+      return res.json(link);
+    } catch (error) {
+      return next(error);
     }
-    return res.json({
-      codigo: link.codigo,
-      url: link.url,
-      clicks: link.clicks,
-      creado: link.creado
-    });
   });
 
   // redirigir al destino
-  app.get('/:codigo', (req, res) => {
-    const links = leerLinks();
-    const link = links.find(function (l) { return l.codigo === req.params.codigo; });
-    if (!link) {
-      return res.status(404).send('No existe ese link');
+  app.get('/:codigo', async (req, res, next) => {
+    try {
+      const link = await repositorio.incrementarClicks(req.params.codigo);
+      if (!link) {
+        return res.status(404).send('No existe ese link');
+      }
+      return res.redirect(302, link.url);
+    } catch (error) {
+      return next(error);
     }
-    link.clicks = link.clicks + 1;
-    guardarLinks(links);
-    res.redirect(302, link.url);
   });
 
   app.use((error, req, res, next) => {
@@ -116,4 +106,3 @@ if (require.main === module) {
 }
 
 module.exports = { crearApp };
-
