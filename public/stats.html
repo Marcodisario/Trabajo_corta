@@ -16,14 +16,55 @@
       <button type="submit">Buscar</button>
     </form>
 
-    <!-- maqueta: datos de mentira, falta conectar con el server -->
-    <div class="stats">
-      <div class="stat"><span class="numero">123</span><span class="etiqueta">clicks</span></div>
-      <div class="stat"><span class="numero">-</span><span class="etiqueta">URL original</span></div>
-      <div class="stat"><span class="numero">-</span><span class="etiqueta">creado el</span></div>
+    <p id="estado-stats" class="estado" aria-live="polite"></p>
+
+    <div id="resultado-stats" class="stats oculto">
+      <div class="stat"><span id="clicks" class="numero"></span><span class="etiqueta">clicks</span></div>
+      <div class="stat"><a id="url-original" class="numero" href="#" target="_blank" rel="noopener noreferrer"></a><span class="etiqueta">URL original</span></div>
+      <div class="stat"><span id="creado" class="numero"></span><span class="etiqueta">creado el</span></div>
     </div>
 
     <p class="pie"><a href="index.html">Volver a acortar</a></p>
   </main>
+
+  <script>
+    const form = document.getElementById('form-stats');
+    const estado = document.getElementById('estado-stats');
+    const resultado = document.getElementById('resultado-stats');
+    const clicks = document.getElementById('clicks');
+    const urlOriginal = document.getElementById('url-original');
+    const creado = document.getElementById('creado');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const codigo = document.getElementById('codigo').value.trim();
+
+      resultado.classList.add('oculto');
+      estado.classList.remove('error');
+      estado.textContent = 'Buscando estadísticas…';
+
+      try {
+        const res = await fetch(`/api/links/${encodeURIComponent(codigo)}/stats`);
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'No se pudieron consultar las estadísticas');
+        }
+
+        clicks.textContent = data.clicks;
+        urlOriginal.textContent = data.url;
+        urlOriginal.href = data.url;
+        creado.textContent = new Intl.DateTimeFormat('es-AR', {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        }).format(new Date(data.creado));
+
+        estado.textContent = '';
+        resultado.classList.remove('oculto');
+      } catch (error) {
+        estado.textContent = error.message;
+        estado.classList.add('error');
+      }
+    });
+  </script>
 </body>
 </html>

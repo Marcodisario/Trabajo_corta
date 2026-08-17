@@ -12,7 +12,7 @@ En este punto:
 - Los datos se guardan temporalmente en `links.json`.
 - La creación valida URLs HTTP/HTTPS y evita códigos duplicados.
 - Los links cortos redirigen y sus clicks se guardan correctamente.
-- El endpoint y la interfaz de estadísticas todavía están pendientes.
+- El endpoint y la interfaz muestran estadísticas reales sin sumar clicks al consultarlas.
 - La persistencia se migrará a PostgreSQL antes del deploy en Railway.
 
 ## Requisitos
@@ -72,4 +72,3 @@ Los secretos se configuran mediante variables de entorno y nunca se guardan en e
 ## Producción
 
 El destino de producción es Railway con PostgreSQL. El servicio deberá usar el puerto provisto por el entorno y los enlaces y clicks deberán sobrevivir a reinicios y redeploys.
-
