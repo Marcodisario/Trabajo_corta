@@ -40,6 +40,10 @@ function crearApp(opciones = {}) {
   app.use(express.json());
   app.use(express.static(path.join(__dirname, 'public')));
 
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+  });
+
   // crear un link corto
   app.post('/api/links', async (req, res, next) => {
     const url = normalizarUrl(req.body && req.body.url);
@@ -111,8 +115,9 @@ if (require.main === module) {
   repositorio.inicializar()
     .then(() => {
       const app = crearApp({ repositorio });
-      app.listen(3000, function () {
-        console.log('Corta escuchando en http://localhost:3000');
+      const port = Number(process.env.PORT) || 3000;
+      app.listen(port, function () {
+        console.log(`Corta escuchando en el puerto ${port}`);
       });
     })
     .catch((error) => {

@@ -55,6 +55,14 @@ test('sirve la página principal', async (t) => {
   assert.match(texto, /<h1>Corta<\/h1>/);
 });
 
+test('expone un healthcheck para la plataforma', async (t) => {
+  const { app } = crearEntorno(t);
+  const respuesta = await solicitar(t, app, '/health');
+
+  assert.equal(respuesta.status, 200);
+  assert.deepEqual(await respuesta.json(), { status: 'ok' });
+});
+
 test('la página de estadísticas no muestra datos ficticios', async (t) => {
   const { app } = crearEntorno(t);
   const respuesta = await solicitar(t, app, '/stats.html');
@@ -351,4 +359,3 @@ test('responde 404 para un código inexistente', async (t) => {
   assert.equal(await respuesta.text(), 'No existe ese link');
   assert.deepEqual(leerLinks(), []);
 });
-

@@ -37,6 +37,9 @@ Para usar PostgreSQL, definir `DATABASE_URL` con la cadena de conexión; al
 iniciar, Corta crea la tabla `links` si todavía no existe. No se deben guardar
 credenciales en el repositorio.
 
+En Railway, el servidor usa automáticamente la variable `PORT` provista por
+la plataforma y expone `GET /health` para verificar el estado del despliegue.
+
 La aplicación heredada queda disponible en <http://localhost:3000>.
 
 ## Estructura
