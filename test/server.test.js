@@ -55,6 +55,38 @@ test('sirve la página principal', async (t) => {
   assert.match(texto, /<h1>Corta<\/h1>/);
 });
 
+test('la página de estadísticas no muestra datos ficticios', async (t) => {
+  const { app } = crearEntorno(t);
+  const respuesta = await solicitar(t, app, '/stats.html');
+  const html = await respuesta.text();
+
+  assert.equal(respuesta.status, 200);
+  assert.doesNotMatch(html, /<span class="numero">123<\/span>/);
+});
+
+test('la página de estadísticas tiene campos para los datos reales', async (t) => {
+  const { app } = crearEntorno(t);
+  const respuesta = await solicitar(t, app, '/stats.html');
+  const html = await respuesta.text();
+
+  assert.match(html, /id="resultado-stats"/);
+  assert.match(html, /id="clicks"/);
+  assert.match(html, /id="url-original"/);
+  assert.match(html, /id="creado"/);
+  assert.match(html, /aria-live="polite"/);
+});
+
+test('la página consulta el endpoint y contempla errores', async (t) => {
+  const { app } = crearEntorno(t);
+  const respuesta = await solicitar(t, app, '/stats.html');
+  const html = await respuesta.text();
+
+  assert.match(html, /encodeURIComponent\(codigo\)/);
+  assert.match(html, /\/api\/links\/\$\{encodeURIComponent\(codigo\)\}\/stats/);
+  assert.match(html, /if \(!res\.ok\)/);
+  assert.match(html, /catch \(error\)/);
+});
+
 test('rechaza una creación cuando falta la URL', async (t) => {
   const { app, leerLinks } = crearEntorno(t);
   const respuesta = await crearLink(t, app, {});
