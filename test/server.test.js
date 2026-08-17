@@ -185,6 +185,47 @@ test('falla de forma controlada si no consigue un código libre', async (t) => {
   assert.deepEqual(leerLinks(), existentes);
 });
 
+test('devuelve estadísticas reales para un código existente', async (t) => {
+  const inicial = [{
+    codigo: 'abc',
+    url: 'https://example.com/destino',
+    clicks: 7,
+    creado: '2026-08-14T12:00:00.000Z'
+  }];
+  const { app, leerLinks } = crearEntorno(t, inicial);
+  const respuesta = await solicitar(t, app, '/api/links/abc/stats');
+
+  assert.equal(respuesta.status, 200);
+  assert.deepEqual(await respuesta.json(), inicial[0]);
+  assert.deepEqual(leerLinks(), inicial);
+});
+
+test('las estadísticas reflejan clicks sin incrementarlos', async (t) => {
+  const inicial = [{
+    codigo: 'abc',
+    url: 'https://example.com/destino',
+    clicks: 0,
+    creado: '2026-08-14T12:00:00.000Z'
+  }];
+  const { app, leerLinks } = crearEntorno(t, inicial);
+
+  await solicitar(t, app, '/abc', { redirect: 'manual' });
+  const respuesta = await solicitar(t, app, '/api/links/abc/stats');
+
+  assert.equal(respuesta.status, 200);
+  assert.equal((await respuesta.json()).clicks, 1);
+  assert.equal(leerLinks()[0].clicks, 1);
+});
+
+test('responde JSON 404 para estadísticas inexistentes', async (t) => {
+  const { app, leerLinks } = crearEntorno(t);
+  const respuesta = await solicitar(t, app, '/api/links/noexiste/stats');
+
+  assert.equal(respuesta.status, 404);
+  assert.deepEqual(await respuesta.json(), { error: 'No existe ese link' });
+  assert.deepEqual(leerLinks(), []);
+});
+
 test('redirige al destino y persiste exactamente un click', async (t) => {
   const inicial = [{
     codigo: 'abc',
