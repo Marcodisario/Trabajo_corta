@@ -40,6 +40,15 @@ credenciales en el repositorio.
 En Railway, el servidor usa automáticamente la variable `PORT` provista por
 la plataforma y expone `GET /health` para verificar el estado del despliegue.
 
+## Despliegue
+
+La aplicación está publicada en:
+
+https://corta-production-7def.up.railway.app
+
+El servicio de aplicación se conecta por la red privada de Railway a un
+PostgreSQL administrado con volumen persistente.
+
 La aplicación heredada queda disponible en <http://localhost:3000>.
 
 ## Estructura
@@ -80,3 +89,4 @@ Los secretos se configuran mediante variables de entorno y nunca se guardan en e
 ## Producción
 
 El destino de producción es Railway con PostgreSQL. El servicio deberá usar el puerto provisto por el entorno y los enlaces y clicks deberán sobrevivir a reinicios y redeploys.
+
