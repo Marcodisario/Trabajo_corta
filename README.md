@@ -32,6 +32,11 @@ npm install
 npm start
 ```
 
+Sin configuración adicional, la aplicación conserva los links en `links.json`.
+Para usar PostgreSQL, definir `DATABASE_URL` con la cadena de conexión; al
+iniciar, Corta crea la tabla `links` si todavía no existe. No se deben guardar
+credenciales en el repositorio.
+
 La aplicación heredada queda disponible en <http://localhost:3000>.
 
 ## Estructura

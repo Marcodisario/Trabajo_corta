@@ -3,6 +3,14 @@ const path = require('path');
 const { generarCodigo } = require('./utils');
 const { CodigoDuplicadoError } = require('./repositories/errors');
 const { JsonLinkRepository } = require('./repositories/json-link-repository');
+const { PostgresLinkRepository } = require('./repositories/postgres-link-repository');
+
+function crearRepositorioDesdeEntorno() {
+  if (process.env.DATABASE_URL) {
+    return new PostgresLinkRepository({ connectionString: process.env.DATABASE_URL });
+  }
+  return new JsonLinkRepository(path.join(__dirname, 'links.json'));
+}
 
 function normalizarUrl(valor) {
   if (typeof valor !== 'string') {
@@ -99,10 +107,18 @@ function crearApp(opciones = {}) {
 }
 
 if (require.main === module) {
-  const app = crearApp();
-  app.listen(3000, function () {
-    console.log('Corta escuchando en http://localhost:3000');
-  });
+  const repositorio = crearRepositorioDesdeEntorno();
+  repositorio.inicializar()
+    .then(() => {
+      const app = crearApp({ repositorio });
+      app.listen(3000, function () {
+        console.log('Corta escuchando en http://localhost:3000');
+      });
+    })
+    .catch((error) => {
+      console.error('No se pudo iniciar Corta', error);
+      process.exitCode = 1;
+    });
 }
 
-module.exports = { crearApp };
+module.exports = { crearApp, crearRepositorioDesdeEntorno };
