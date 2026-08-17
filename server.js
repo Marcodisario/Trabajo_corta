@@ -71,6 +71,21 @@ function crearApp(opciones = {}) {
     res.status(201).json({ codigo: codigo, corta: '/' + codigo });
   });
 
+  // consultar estadísticas sin contar un click
+  app.get('/api/links/:codigo/stats', (req, res) => {
+    const links = leerLinks();
+    const link = links.find(function (l) { return l.codigo === req.params.codigo; });
+    if (!link) {
+      return res.status(404).json({ error: 'No existe ese link' });
+    }
+    return res.json({
+      codigo: link.codigo,
+      url: link.url,
+      clicks: link.clicks,
+      creado: link.creado
+    });
+  });
+
   // redirigir al destino
   app.get('/:codigo', (req, res) => {
     const links = leerLinks();
